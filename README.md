@@ -12,6 +12,56 @@ This is a collection of scripts used to automate the setup of Windows on a fresh
 1. Install proxytunnel (need to add docs).
 1. update-path.ps1.
 
+## Recommended Setup on WSL2
+
+1. Import GPG keys (see section below).
+1. Install AWS CLI: `sudo snap install aws-cli --classic`.
+
+### Import GPG Keys
+
+You can just copy and paste the folder. Run `gpg --list-keys` to ensure your keys are
+there. You can also run `echo "test" | gpg --sign` to see if everything works. If you
+run into an issue, you might want to try `export GPG_TTY=$(tty)`. I prefer to add this
+as one of my startup profiles.
+
+Next you'll need to add your keys to Git. Run
+`gpg --list-secret-keys --keyid-format=long` and extract the ID of your key. It should
+be 16 characters. Then run the following commands.
+
+```sh
+git config --global user.signingkey gpg ...
+git config --global commit.gpgsign true
+git config --global tag.gpgSign true
+```
+
+### Automate AWS
+
+Throw this into your .bashrc.
+
+```bash
+getpip() {
+  local profile="${1:-default}"
+  local domain="${2:-default}"
+  local domain_owner="${3:-default}"
+  local repository="${4:-default}"
+
+  # Get the authorization token.
+  local token
+  token=$(aws codeartifact get-authorization-token --profile "$profile" --domain "$domain" --domain-owner "$domain_owner" --query authorizationToken --output text)
+
+  # Get the repository endpoint.
+  local url
+  url=$(aws --profile "$profile" codeartifact get-repository-endpoint --domain "$domain" --repository "$repository" --format pypi --domain-owner "$domain_owner" --no-cli-pager)
+  url=$(echo "$url" | jq -r '.repositoryEndpoint')
+
+  # Construct the final URL.
+  url="https://aws:$token@${url#https://}simple"
+
+  # Output the URL.
+  echo "$url"
+}
+```
+
 ## Improve PowerShell
 
 1. admin/install-module.ps1
